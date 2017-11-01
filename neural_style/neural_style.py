@@ -43,7 +43,7 @@ def train(args):
     train_dataset = datasets.ImageFolder(args.dataset, transform)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size)
 
-    transformer = TransformerNet()
+    transformer = TransformerNet(args.shiftnet)
     optimizer = Adam(transformer.parameters(), args.lr)
     mse_loss = torch.nn.MSELoss()
 
@@ -127,7 +127,11 @@ def train(args):
     if args.cuda:
         transformer.cpu()
     save_model_filename = "epoch_" + str(args.epochs) + "_" + str(time.ctime()).replace(' ', '_') + "_" + str(
-        args.content_weight) + "_" + str(args.style_weight) + ".model"
+        args.content_weight) + "_" + str(args.style_weight)
+    if args.shift:
+        save_model_filename += "_shiftnet"
+    save_model_filename += + ".model"
+    
     save_model_path = os.path.join(args.save_model_dir, save_model_filename)
     torch.save(transformer.state_dict(), save_model_path)
 
@@ -146,7 +150,7 @@ def stylize(args):
         content_image = content_image.cuda()
     content_image = Variable(content_image, volatile=True)
 
-    style_model = TransformerNet()
+    style_model = TransformerNet(args.shiftnet)
     style_model.load_state_dict(torch.load(args.model))
     if args.cuda:
         style_model.cuda()
@@ -193,7 +197,7 @@ def main():
                                   help="number of images after which the training loss is logged, default is 500")
     train_arg_parser.add_argument("--checkpoint-interval", type=int, default=2000,
                                   help="number of batches after which a checkpoint of the trained model will be created")
-
+    train_arg_parser.add_argument("--shiftnet", action='store_true', help='Replace 3x3 convs with shift + 1x1 conv')
     eval_arg_parser = subparsers.add_parser("eval", help="parser for evaluation/stylizing arguments")
     eval_arg_parser.add_argument("--content-image", type=str, required=True,
                                  help="path to content image you want to stylize")
@@ -205,7 +209,7 @@ def main():
                                  help="saved model to be used for stylizing the image")
     eval_arg_parser.add_argument("--cuda", type=int, required=True,
                                  help="set it to 1 for running on GPU, 0 for CPU")
-
+    eval_arg_parser.add_argument('--shiftnet', action='store_true', help='Replace 3x3 convs with shift + 1x1 conv')
     args = main_arg_parser.parse_args()
 
     if args.subcommand is None:

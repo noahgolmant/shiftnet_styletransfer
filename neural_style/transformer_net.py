@@ -1,5 +1,5 @@
 import torch
-
+import numpy as np
 
 class TransformerNet(torch.nn.Module):
     def __init__(self, shiftnet=True):
@@ -47,7 +47,7 @@ class TransformerNet(torch.nn.Module):
         return y
 
 
-class Shift3x3(nn.Module):
+class Shift3x3(torch.nn.Module):
     def __init__(self, planes):
         super(Shift3x3, self).__init__()
 
