@@ -83,7 +83,6 @@ def train(args):
 
             y = utils.normalize_batch(y)
             x = utils.normalize_batch(x)
-
             features_y = vgg(y)
             features_x = vgg(x)
 

@@ -1,5 +1,7 @@
 import torch
 import numpy as np
+from torch.autograd import Variable
+import torch.nn.functional as F
 
 class TransformerNet(torch.nn.Module):
     def __init__(self, shiftnet=True):
@@ -8,9 +10,10 @@ class TransformerNet(torch.nn.Module):
         self.conv1 = ConvLayer(3, 32, kernel_size=9, stride=1)
         self.in1 = torch.nn.InstanceNorm2d(32, affine=True)
         if shiftnet:
-        	 self.conv2 = ShiftConv(32, 64, stride=2)
+            print('using shiftnet!')	
+            self.conv2 = ShiftConv(32, 64, stride=2)
         else:
-        	self.conv2 = ConvLayer(32, 64, kernel_size=3, stride=2)
+            self.conv2 = ConvLayer(32, 64, kernel_size=3, stride=2)
         self.in2 = torch.nn.InstanceNorm2d(64, affine=True)
         if shiftnet:
         	self.conv3 = ShiftConv(64, 128, stride=2)
@@ -24,9 +27,9 @@ class TransformerNet(torch.nn.Module):
         self.res4 = ResidualBlock(128, shiftnet)
         self.res5 = ResidualBlock(128, shiftnet)
         # Upsampling Layers
-        self.deconv1 = UpsampleConvLayer(128, 64, shiftnet, kernel_size=3, stride=1, upsample=2)
+        self.deconv1 = UpsampleConvLayer(128, 64, False, kernel_size=3, stride=1, upsample=2)
         self.in4 = torch.nn.InstanceNorm2d(64, affine=True)
-        self.deconv2 = UpsampleConvLayer(64, 32, shiftnet, kernel_size=3, stride=1, upsample=2)
+        self.deconv2 = UpsampleConvLayer(64, 32, False, kernel_size=3, stride=1, upsample=2)
         self.in5 = torch.nn.InstanceNorm2d(32, affine=True)
         self.deconv3 = ConvLayer(32, 3, kernel_size=9, stride=1)
         # Non-linearities
@@ -62,7 +65,7 @@ class Shift3x3(torch.nn.Module):
 
         self.register_parameter('bias', None)
         # self.register_buffer('kernel', torch.from_numpy(kernel))
-        self.kernel = Variable(torch.from_numpy(kernel), requires_grad=True)
+        self.kernel = Variable(torch.from_numpy(kernel), requires_grad=False).cuda()
 
     def forward(self, input):
         return F.conv2d(input,
