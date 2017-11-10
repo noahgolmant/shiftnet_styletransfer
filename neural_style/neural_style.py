@@ -149,6 +149,9 @@ def stylize(args):
         content_image = content_image.cuda()
     content_image = Variable(content_image, volatile=True)
 
+    reflection_pad = torch.nn.ReflectionPad2d(128)
+    reflection_pad.cuda()
+    content_image = reflection_pad(content_image)
     style_model = TransformerNet(args.shiftnet)
     style_model.load_state_dict(torch.load(args.model))
     if args.cuda:

@@ -8,7 +8,7 @@ class TransformerNet(torch.nn.Module):
     def __init__(self, shiftnet=True):
         super(TransformerNet, self).__init__()
         # Initial convolution layers
-        self.conv1 = ConvLayer(3, 32, kernel_size=15, stride=1) # k size was 9
+        self.conv1 = ConvLayer(3, 32, kernel_size=9, stride=1) # k size was 9
         self.in1 = torch.nn.InstanceNorm2d(32, affine=True)
         #if shiftnet:
         #    print('using shiftnet!')
@@ -16,7 +16,9 @@ class TransformerNet(torch.nn.Module):
         #else:
         if shiftnet:
 		print('using shiftnet!')
-	self.conv2 = ConvLayer(32, 64, kernel_size=5, stride=2) # was 3
+		self.conv2 = ShiftConv(32, 64, kernel_size=7, stride=2)
+	else:
+		self.conv2 = ConvLayer(32, 64, kernel_size=7, stride=2) # was 3
         self.in2 = torch.nn.InstanceNorm2d(64, affine=True)
         if shiftnet:
         	self.conv3 = ShiftConv(64, 128, stride=2)
@@ -32,9 +34,9 @@ class TransformerNet(torch.nn.Module):
         # Upsampling Layers
         self.deconv1 = UpsampleConvLayer(128, 64, shiftnet, kernel_size=5, stride=1, upsample=2)
         self.in4 = torch.nn.InstanceNorm2d(64, affine=True)
-        self.deconv2 = UpsampleConvLayer(64, 32, shiftnet, kernel_size=7, stride=1, upsample=2)
+        self.deconv2 = UpsampleConvLayer(64, 32, False, kernel_size=7, stride=1, upsample=2)
         self.in5 = torch.nn.InstanceNorm2d(32, affine=True)
-        self.deconv3 = ConvLayer(32, 3, kernel_size=15, stride=1)
+        self.deconv3 = ConvLayer(32, 3, kernel_size=9, stride=1)
         # Non-linearities
         self.relu = torch.nn.ReLU()
 
