@@ -2,18 +2,21 @@ import torch
 import numpy as np
 from torch.autograd import Variable
 import torch.nn.functional as F
+from shiftnet_cuda_v2 import Shift3x3_cuda, GenericShift_cuda
 
 class TransformerNet(torch.nn.Module):
     def __init__(self, shiftnet=True):
         super(TransformerNet, self).__init__()
         # Initial convolution layers
-        self.conv1 = ConvLayer(3, 32, kernel_size=9, stride=1)
+        self.conv1 = ConvLayer(3, 32, kernel_size=15, stride=1) # k size was 9
         self.in1 = torch.nn.InstanceNorm2d(32, affine=True)
+        #if shiftnet:
+        #    print('using shiftnet!')
+        #    self.conv2 = ShiftConv(32, 64, kernel_size=7, stride=2) # k size was 3
+        #else:
         if shiftnet:
-            print('using shiftnet!')	
-            self.conv2 = ShiftConv(32, 64, stride=2)
-        else:
-            self.conv2 = ConvLayer(32, 64, kernel_size=3, stride=2)
+		print('using shiftnet!')
+	self.conv2 = ConvLayer(32, 64, kernel_size=5, stride=2) # was 3
         self.in2 = torch.nn.InstanceNorm2d(64, affine=True)
         if shiftnet:
         	self.conv3 = ShiftConv(64, 128, stride=2)
@@ -27,11 +30,11 @@ class TransformerNet(torch.nn.Module):
         self.res4 = ResidualBlock(128, shiftnet)
         self.res5 = ResidualBlock(128, shiftnet)
         # Upsampling Layers
-        self.deconv1 = UpsampleConvLayer(128, 64, False, kernel_size=3, stride=1, upsample=2)
+        self.deconv1 = UpsampleConvLayer(128, 64, shiftnet, kernel_size=5, stride=1, upsample=2)
         self.in4 = torch.nn.InstanceNorm2d(64, affine=True)
-        self.deconv2 = UpsampleConvLayer(64, 32, False, kernel_size=3, stride=1, upsample=2)
+        self.deconv2 = UpsampleConvLayer(64, 32, shiftnet, kernel_size=7, stride=1, upsample=2)
         self.in5 = torch.nn.InstanceNorm2d(32, affine=True)
-        self.deconv3 = ConvLayer(32, 3, kernel_size=9, stride=1)
+        self.deconv3 = ConvLayer(32, 3, kernel_size=15, stride=1)
         # Non-linearities
         self.relu = torch.nn.ReLU()
 
@@ -78,9 +81,9 @@ class Shift3x3(torch.nn.Module):
                        )
 
 class ShiftConv(torch.nn.Module):
-	def __init__(self, in_channels, out_channels, stride=1):
+	def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, dilation=1):
 		super(ShiftConv, self).__init__()
-		self.shift = Shift3x3(in_channels)
+		self.shift = GenericShift_cuda(kernel_size, dilation)
 		self.conv  = torch.nn.Conv2d(in_channels, out_channels, 1, stride)
 
 	def forward(self, x):
@@ -138,12 +141,13 @@ class UpsampleConvLayer(torch.nn.Module):
     def __init__(self, in_channels, out_channels, shiftnet, kernel_size, stride, upsample=None):
         super(UpsampleConvLayer, self).__init__()
         self.upsample = upsample
+	self.shiftnet = shiftnet
         if upsample:
             self.upsample_layer = torch.nn.UpsamplingNearest2d(scale_factor=upsample)
         reflection_padding = kernel_size // 2
         self.reflection_pad = torch.nn.ReflectionPad2d(reflection_padding)
-        if shiftnet and kernel_size == 3:
-        	self.conv2d = ShiftConv(in_channels, out_channels, stride)
+        if shiftnet:
+        	self.conv2d = ShiftConv(in_channels, out_channels, kernel_size, stride=stride)
         else:
         	self.conv2d = torch.nn.Conv2d(in_channels, out_channels, kernel_size, stride)
 
@@ -151,6 +155,6 @@ class UpsampleConvLayer(torch.nn.Module):
         x_in = x
         if self.upsample:
             x_in = self.upsample_layer(x_in)
-        out = self.reflection_pad(x_in)
+        out = x_in if self.shiftnet else self.reflection_pad(x_in)
         out = self.conv2d(out)
         return out
